@@ -9,6 +9,9 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@openzeppelin/contracts": "^4.4.0",
+    "chai": "^4.3.4",
+    "ganache": "^6.4.5",
     "mocha": "^9.1.3",
     "node": "^17.2.0"
   }
