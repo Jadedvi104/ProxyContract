@@ -1,8 +1,8 @@
-const ProxyContract = artifacts.require('../Proxy.sol');
-const Marketplace = artifacts.require('../market.sol');
-const NFTcore = artifacts.require('/erc721.sol');
+const ProxyContract = artifacts.require('Proxy');
+const Marketplace = artifacts.require('ECIOMarketplace');
+const NFTcore = artifacts.require('ECIOTEST');
 
-contract('proxycontract-test', ([admin, _]) => {
+contract('', ([admin, _]) => {
   it('Proxy should call getListingPrice from Marketplace', async () => {
     let data, gas, gasPrice, txData, listingPrice, implementationVal, adminVal;
     const proxy = await ProxyContract.new();
