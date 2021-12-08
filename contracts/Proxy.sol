@@ -1,46 +1,92 @@
-pragma solidity ^0.8.6;
+pragma solidity >=0.6.0 <0.9.0;
 
 contract Proxy {
-  bytes32 private constant _ADMIN_SLOT = 0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103;
-  bytes32 private constant _IMPLEMENTATION_SLOT = 0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc;
 
-  constructor() {
-    bytes32 slot = _ADMIN_SLOT;
-    address _admin = msg.sender;
-    assembly {
-      sstore(slot, _admin)
+    constructor (address _logic, bytes memory _data) public payable {
+       assert(_IMPLEMENTATION_SLOT == bytes32(uint256(keccak256("eip1967.proxy.implementation")) - 1));
+        _setImplementation(_logic);
+        if(_data.length > 0) {
+            // solhint-disable-next-line avoid-low-level-calls
+            (bool success,) = _logic.delegatecall(_data);
+            require(success);
+        }
     }
-  }
 
-  function admin() public view returns (address adm) {
-    bytes32 slot = _ADMIN_SLOT;
-    assembly {
-      adm := sload(slot)
-    }
-  }
+    /**
+     * @dev Emitted when the implementation is upgraded.
+     */
+    event Upgraded(address indexed implementation);
 
-  function implementation() public view returns (address impl) {
-    bytes32 slot = _IMPLEMENTATION_SLOT;
-    assembly {
-      impl := sload(slot)
-    }
-  }
+    bytes32 private constant _IMPLEMENTATION_SLOT = 0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc;
 
-  function upgrade(address newImplementation) external {
-    require(msg.sender == admin(), 'admin only');
-    bytes32 slot = _IMPLEMENTATION_SLOT;
-    assembly {
-      sstore(slot, newImplementation)
+    function _implementation() internal view returns (address impl) {
+        bytes32 slot = _IMPLEMENTATION_SLOT;
+        // solhint-disable-next-line no-inline-assembly
+        assembly {
+            impl := sload(slot)
+        }
     }
-  }
 
-  fallback() external payable {
-    assembly {
-      let _target := sload(_IMPLEMENTATION_SLOT)
-      calldatacopy(0x0, 0x0, calldatasize())
-      let result := delegatecall(gas(), _target, 0x0, calldatasize(), 0x0, 0)
-      returndatacopy(0x0, 0x0, returndatasize())
-      switch result case 0 {revert(0, 0)} default {return (0, returndatasize())}
+    function _fallback() internal {
+        _delegate(_implementation());
     }
-  }
+
+    function _delegate(address implementation) internal {
+        assembly {
+            // Copy msg.data. We take full control of memory in this inline assembly
+            // block because it will not return to Solidity code. We overwrite the
+            // Solidity scratch pad at memory position 0.
+            calldatacopy(0, 0, calldatasize())
+
+            // Call the implementation.
+            // out and outsize are 0 because we don't know the size yet.
+            let result := delegatecall(gas(), implementation, 0, calldatasize(), 0, 0)
+
+            // Copy the returned data.
+            returndatacopy(0, 0, returndatasize())
+
+            switch result
+            // delegatecall returns 0 on error.
+            case 0 { revert(0, returndatasize()) }
+            default { return(0, returndatasize()) }
+        }
+    }
+
+    function upgradeToAndCall(address newImplementation, bytes calldata data) external payable {
+        _upgradeTo(newImplementation);
+        // solhint-disable-next-line avoid-low-level-calls
+        (bool success,) = newImplementation.delegatecall(data);
+        require(success);
+    }
+
+    /**
+     * @dev Upgrades the proxy to a new implementation.
+     *
+     * Emits an {Upgraded} event.
+     */
+    function _upgradeTo(address newImplementation) internal {
+        _setImplementation(newImplementation);
+        emit Upgraded(newImplementation);
+    }
+
+    /**
+     * @dev Stores a new address in the EIP1967 implementation slot.
+     */
+    function _setImplementation(address newImplementation) private {
+
+        bytes32 slot = _IMPLEMENTATION_SLOT;
+
+        // solhint-disable-next-line no-inline-assembly
+        assembly {
+            sstore(slot, newImplementation)
+        }
+    }
+
+    /**
+     * @dev Fallback function that delegates calls to the address returned by `_implementation()`. Will run if no other
+     * function in the contract matches the call data.
+     */
+    fallback () external payable {
+        _fallback();
+    }
 }

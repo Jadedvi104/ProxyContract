@@ -9,14 +9,29 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 contract ECIOMarketplace is ReentrancyGuard {
     using Counters for Counters.Counter;
 
+    address public owner;
+    bool public initialized;
+    uint256 feesRate;
+    uint256 listingPrice;
+    constructor() public {}
+
+    modifier initializer() {
+      require(!initialized, "Initializable: contract is already initialized");
+      _;
+    }
+
+    function initialize(uint256 _feesRate, uint256 _listingPrice) public initializer {
+        owner = msg.sender;
+        initialized = true;
+        feesRate = _feesRate;
+        listingPrice = _listingPrice;
+    }
+
     Counters.Counter private _itemIds;
     Counters.Counter private _itemsSold;
     Counters.Counter private _itemsCanceled;
 
-    uint256 feesRate = 425;
-    uint256 listingPrice = 100;
 
-    constructor() {}
 
     struct MarketItem {
         address nftContract;
@@ -44,12 +59,13 @@ contract ECIOMarketplace is ReentrancyGuard {
         bool cancel
     );
 
-
-
-
     /* Returns the listing price of the contract */
     function getListingPrice() public view returns (uint256) {
         return listingPrice;
+    }
+
+    function getfeesRate() public view returns (uint256) {
+        return feesRate;
     }
 
     function cancelMarketItem(uint256 itemId) public nonReentrant {
